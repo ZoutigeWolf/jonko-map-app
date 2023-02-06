@@ -42,7 +42,7 @@ function MapScreen({ navigation }) {
     useEffect(() => {
         const interval = setInterval(() => {
             (async () => {
-                await fetch("http://192.168.1.12:42069/memories")
+                await fetch("http://127.0.0.1:42069/memories")
                 .then((r) => r.json())
                 .then((data) => {
                     setMemories(data);

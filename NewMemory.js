@@ -1,5 +1,5 @@
 async function createNewMemory(name, lat, lng) {
-    await fetch("http://192.168.1.12:42069/memories", {
+    await fetch("http://127.0.0.1:42069/memories", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json'
