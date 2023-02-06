@@ -1,25 +1,60 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, Button, TouchableOpacity, FlatList, SafeAreaView } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState , useEffect} from 'react';
+import { StyleSheet, View, Text, Pressable, TextInput } from 'react-native';
+import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Icon from '@expo/vector-icons/Ionicons';
 import MapView from 'react-native-maps';
 import { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
+import { Slider } from '@miblanchard/react-native-slider';
 
-const RoundButton = ({ onPress, icon, style }) => (
-    <TouchableOpacity onPress={onPress} style={[styles.roundButton, style]}>
-        <Icon name={icon} size={24} color="black" />
-    </TouchableOpacity>
-);
+import createNewMemory from './NewMemory';
 
-const MenuButton = ({title, icon, onPress}) => (
-    <TouchableOpacity onPress={onPress} style={styles.menuListButton}>
-        <Icon name={icon} size={24} color="black" />
-        <Text>{title}</Text>
-    </TouchableOpacity>
-);
+function IconButton({ onPress, icon, style }) {
+    return (
+        <Pressable onPress={onPress} style={[styles.iconButton, style]}>
+            <Icon name={icon} size={24} color="black" />
+        </Pressable>
+    )
+}
+
+function TextButton({ onPress, text, style }) {
+    return (
+        <Pressable onPress={onPress} style={[styles.textButton, style]}>
+            <Text style={styles.textButtonText}>{text}</Text>
+        </Pressable>
+    )
+}
+
+function MenuButton({ onPress, icon, title, style }) {
+    return (
+        <Pressable onPress={onPress} style={[styles.menuListButton, style]}>
+            <Icon name={icon} size={24} color="black" />
+            <Text>{title}</Text>
+        </Pressable>
+    )
+}
 
 function MapScreen({ navigation }) {
+    const [memories, setMemories] = useState([]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            (async () => {
+                await fetch("http://192.168.1.12:42069/memories")
+                .then((r) => r.json())
+                .then((data) => {
+                    setMemories(data);
+                });
+            })();
+        }, 1000);
+
+        return () => {
+            clearInterval(interval);
+        };
+    }, []);
+
     return (
         <View style={styles.mapView}>
             <MapView
@@ -31,14 +66,23 @@ function MapScreen({ navigation }) {
                 }}
                 style={styles.map}
                 showsUserLocation={true}
-            />
+                showsMyLocationButton={true}
+            >
+                {memories.map((memory) => (
+                    <Marker
+                        key={memory.id}
+                        coordinate={{ latitude: memory.latitude, longitude: memory.longitude }}
+                        title={memory.name}
+                    />
+                ))}
+            </MapView>
             <View style={styles.mapViewFooter}>
-                <RoundButton
+                <IconButton
                     icon="md-menu"
                     style={styles.menuButton}
                     onPress={() => navigation.navigate("Menu")}
                 />
-                <RoundButton
+                <IconButton
                     icon="md-add"
                     style={styles.newButton}
                     onPress={() => navigation.navigate("New Memory")}
@@ -52,7 +96,7 @@ function MenuScreen({ navigation }) {
     return (
         <View style={styles.menuView}>
             <View style={styles.screenHeader}>
-                <RoundButton
+                <IconButton
                     icon="md-arrow-back"
                     style={styles.backButton}
                     onPress={() => navigation.goBack()}
@@ -70,14 +114,49 @@ function MenuScreen({ navigation }) {
 }
 
 function NewMemoryScreen({ navigation }) {
+    const [name, setName] = useState("");
+    const [location, setLocation] = useState(null);
+
+    useEffect(() => {
+        (async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+
+            if (status !== "granted") {
+                return;
+            }
+
+            let location = await Location.getCurrentPositionAsync({});
+            setLocation(location);
+        })();
+    }, []);
+
     return (
-        <View style={styles.screenHeader}>
-        <RoundButton
-            icon="md-arrow-back"
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-        />
-    </View>
+        <View style={styles.newMemoryView}>
+            <View style={styles.screenHeader}>
+            <IconButton
+                icon="md-arrow-back"
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+            />
+            </View>
+            <View style={styles.newMemoryForm}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="New Memory"
+                    onChangeText={setName}
+                />
+                <TextButton
+                    text="Add"
+                    style={styles.addMemoryButton}
+                    onPress={async () => {
+                        if (location === null) return;
+
+                        await createNewMemory(name, location.coords.latitude, location.coords.longitude);
+                    }}     
+                />
+            </View>
+        </View>
     );
 }
 
@@ -109,7 +188,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginBottom: 24
     },
-    roundButton: {
+    iconButton: {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -118,6 +197,18 @@ const styles = StyleSheet.create({
         backgroundColor: "#ffffff",
         borderRadius: "50%"
     },
+    textButton: {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        width: 128,
+        height: 40,
+        backgroundColor: "#ffffff",
+        borderRadius: "50%"
+    },
+    textButtonText: {
+
+    },
     menuButton: {
         marginRight: 24
     },
@@ -125,11 +216,12 @@ const styles = StyleSheet.create({
         width: 200,
     },
     screenHeader: {
-        height: 50,
+        height: 72,
         marginTop: 24
     },
     backButton: {
         backgroundColor: "transparent",
+        borderRadius: 0
     },
     menuView: {
         backgroundColor: "#ffffff",
@@ -148,6 +240,29 @@ const styles = StyleSheet.create({
     map: {
         ...StyleSheet.absoluteFillObject,
         flex: 1
+    },
+    newMemoryView: {
+        backgroundColor: "#ffffff"
+    },
+    newMemoryForm: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        padding: 12
+    },
+    input: {
+        height: 40,
+        padding: 10,
+        backgroundColor: "#efefef",
+        borderRadius: 4,
+        marginBottom: 16
+    },
+    inputLabel: {
+        marginBottom: 8
+    },
+    addMemoryButton: {
+        width: "100%",
+        backgroundColor: "#dfdfdf"
     }
 });
 
