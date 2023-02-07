@@ -7,7 +7,6 @@ import Icon from '@expo/vector-icons/Ionicons';
 import MapView from 'react-native-maps';
 import { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { Slider } from '@miblanchard/react-native-slider';
 
 import createNewMemory from './NewMemory';
 
